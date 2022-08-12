@@ -1,17 +1,18 @@
 #include <iostream>
 #include <thread>
 #include <Windows.h>
-#include "Resizer.h"
 
 #define MOD_KEY VK_LCONTROL
 
 #define RectW(r) (r.right - r.left)
 #define RectH(r) (r.bottom - r.top)
+#define LOG(m) std::cout << m << std::endl
 
 LRESULT KbHookHandler(int code, WPARAM wParam, LPARAM lParam);
 LRESULT MouseHookHandler(int nCode, WPARAM wParam, LPARAM lParam);
 
 void Unhook(HHOOK hHook);
+void UpdaterTask();
 
 HMODULE hModule;
 
@@ -34,7 +35,7 @@ POINT initialMousePos;
 HWND hResizingWindow;
 RECT initialWndRect;
 
-void updater()
+void UpdaterTask()
 {
 	while (true)
 	{
@@ -72,7 +73,6 @@ void updater()
 	}
 }
 
-
 LRESULT KbHookHandler(int code, WPARAM wParam, LPARAM lParam)
 {
 	KBDLLHOOKSTRUCT* eventData = (KBDLLHOOKSTRUCT*)lParam;
@@ -81,18 +81,17 @@ LRESULT KbHookHandler(int code, WPARAM wParam, LPARAM lParam)
 	{
 		if (!resizeMode)
 		{
-			std::cout << "Registered click: " << eventData->vkCode << " " << std::endl;
-			std::cout << "Resize mode ON" << std::endl;
-			hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookHandler, hModule, 0);
+			LOG("Resize mode ON");
+			hMouseHook = SetWindowsHookEx(WH_MOUSE, MouseHookHandler, hModule, 0);
 			resizeMode = true;
 		}
 	}
 	else if (eventData->vkCode == MOD_KEY && wParam == WM_KEYUP)
 	{
 		Unhook(hMouseHook);
-		std::cout << "Resize mode OFF" << std::endl;
 		resizeMode = false;
-		return NULL;
+		currentMode = Mode::None;
+		LOG("Resize mode OFF");
 	}
 	else if (eventData->vkCode == VK_ESCAPE)
 	{
@@ -113,15 +112,16 @@ LRESULT MouseHookHandler(int nCode, WPARAM wParam, LPARAM lParam)
 		{
 		case WM_RBUTTONDOWN:
 		case WM_LBUTTONDOWN:
-			std::cout << "Detected input: WM_RBUTTONDOWN" << std::endl;
+			LOG("Detected mouse click: " << wParam);
 			hResizingWindow = GetForegroundWindow();
 
 			GetCursorPos(&initialMousePos);
 			GetWindowRect(hResizingWindow, &initialWndRect);
 
-			std::cout << "Starting resize mode" << std::endl;
-			currentMode = wParam == WM_RBUTTONDOWN ? Mode::Resizing : Mode::Moving;
-			return 0;
+			LOG("Starting resize mode");
+			if (wParam == WM_RBUTTONDOWN) currentMode = Mode::Resizing;
+			else if (wParam == WM_LBUTTONDOWN) currentMode = Mode::Moving;
+			break;
 
 		case WM_MOUSEMOVE:
 			if (currentMode != Mode::None) mouseMoved = true;
@@ -129,7 +129,7 @@ LRESULT MouseHookHandler(int nCode, WPARAM wParam, LPARAM lParam)
 
 		case WM_RBUTTONUP:
 		case WM_LBUTTONUP:
-			std::cout << "Stopping resize mode" << std::endl;
+			LOG("Stopping resize mode");
 			currentMode = Mode::None;
 			return 0;
 		}
@@ -141,7 +141,7 @@ LRESULT MouseHookHandler(int nCode, WPARAM wParam, LPARAM lParam)
 void Unhook(HHOOK hHook)
 {
 	UnhookWindowsHookEx(hHook);
-	std::cout << "Unhooked " << hHook << std::endl;
+	LOG("Unhooked " << hHook);
 }
 
 int main()
@@ -149,9 +149,9 @@ int main()
 	hModule = GetModuleHandle(NULL);
 	hKbHook = SetWindowsHookEx(WH_KEYBOARD_LL, KbHookHandler, hModule, 0);
 
-	std::cout << "Added " << hKbHook << " hook for WH_KEYBOARD_LL\n";
+	LOG("Added " << hKbHook << " hook for WH_KEYBOARD_LL");
 
-	std::thread t1(updater);
+	std::thread updaterTask(UpdaterTask);
 
 	MSG msg;
 	while (GetMessage(&msg, NULL, 0, 0) != 0)
@@ -160,5 +160,5 @@ int main()
 		DispatchMessage(&msg);
 	}
 
-	t1.detach();
+	updaterTask.detach();
 }
