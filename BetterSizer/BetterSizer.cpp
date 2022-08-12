@@ -1,5 +1,8 @@
 #include <iostream>
+#include <thread>
+
 #include <Windows.h>
+
 #include "Resizer.h"
 
 #define MOD_KEY VK_LCONTROL
@@ -23,24 +26,31 @@ POINT currentMousePos;
 HWND hResizingWindow;
 RECT initialWndRect;
 
-int main()
+typedef struct {
+    HWND updatingWindow;
+    int width;
+    int height;
+};
+
+void updater()
 {
-    std::cout << "Hello World!\n";
-
-    hModule = GetModuleHandle(L"WinApiTest2.exe");
-    
-    hKbHook = SetWindowsHookEx(WH_KEYBOARD_LL, KbHookHandler, hModule, 0);
-    std::cout << "Added " << hKbHook << " hook for WH_KEYBOARD_LL\n";
-    
-    
-    MSG msg;
-    while (GetMessage(&msg, NULL, 0, 0) != 0)
+    while (true)
     {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-    }
+        if (resizing)
+        {
+            GetCursorPos(&currentMousePos);
 
-    std::cout << hModule << "\nBYE World!\n";
+            LONG diffX = currentMousePos.x - initialMousePos.x;
+            LONG diffY = currentMousePos.y - initialMousePos.y;
+            LONG newX = (initialWndRect.right - initialWndRect.left) + diffX;
+            LONG newY = (initialWndRect.bottom - initialWndRect.top) + diffY;
+
+            SetWindowPos(hResizingWindow, NULL, (int)initialWndRect.left, (int)initialWndRect.top, newX, newY, SWP_NOMOVE);
+            UpdateWindow(hResizingWindow);
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000/60));
+    }
 }
 
 
@@ -91,6 +101,7 @@ LRESULT MouseHookHandler(int nCode, WPARAM wParam, LPARAM lParam)
     }
     else if (wParam == WM_MOUSEMOVE && resizeMode && resizing)
     {
+        /*
         GetCursorPos(&currentMousePos);
 
         LONG diffX = currentMousePos.x - initialMousePos.x;
@@ -99,7 +110,7 @@ LRESULT MouseHookHandler(int nCode, WPARAM wParam, LPARAM lParam)
         LONG newY = (initialWndRect.bottom - initialWndRect.top) + diffY;
 
         SetWindowPos(hResizingWindow, NULL, (int)initialWndRect.left, (int)initialWndRect.top, newX, newY, SWP_NOMOVE | SWP_DRAWFRAME | SWP_FRAMECHANGED);
-        
+        */
     }
     else if (wParam == WM_RBUTTONUP)
     {
@@ -114,4 +125,25 @@ void Unhook(HHOOK hHook)
 {
     UnhookWindowsHookEx(hHook);
     std::cout << "Unhooked " << hHook << std::endl;
+}
+
+int main()
+{
+    std::cout << "Hello World!\n";
+
+    hModule = GetModuleHandle(L"WinApiTest2.exe");
+
+    hKbHook = SetWindowsHookEx(WH_KEYBOARD_LL, KbHookHandler, hModule, 0);
+    std::cout << "Added " << hKbHook << " hook for WH_KEYBOARD_LL\n";
+
+    std::thread t1(updater);
+
+    MSG msg;
+    while (GetMessage(&msg, NULL, 0, 0) != 0)
+    {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+
+    t1.detach();
 }
