@@ -5,5 +5,6 @@
 Default mod key is "Left control". 
 
 | Keystrokes						| Action		|
+|---|---|
 | LEFT CTRL + Drag MOUSE RIGHT BTN	| Resize window	|
 | LEFT CTRL + Drag MOUSE LEFT BTN	| Move window	|
