@@ -56,7 +56,7 @@ void UpdaterTask()
 				LONG cx = (initialWndRect.right - initialWndRect.left) + diffX;
 				LONG cy = (initialWndRect.bottom - initialWndRect.top) + diffY;
 
-				SetWindowPos(hResizingWindow, NULL, (int)initialWndRect.left, (int)initialWndRect.top, cx, cy, SWP_NOMOVE);
+				SetWindowPos(hResizingWindow, NULL, static_cast<int>(initialWndRect.left), static_cast<int>(initialWndRect.top), cx, cy, SWP_NOMOVE);
 				UpdateWindow(hResizingWindow);
 				break;
 			}
@@ -82,7 +82,7 @@ LRESULT KbHookHandler(int code, WPARAM wParam, LPARAM lParam)
 		if (!resizeMode)
 		{
 			LOG("Resize mode ON");
-			hMouseHook = SetWindowsHookEx(WH_MOUSE, MouseHookHandler, hModule, 0);
+			hMouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookHandler, hModule, 0);
 			resizeMode = true;
 		}
 	}
